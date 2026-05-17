@@ -1,127 +1,94 @@
-import ui
-import dialogs
+import streamlit as st
+import pandas as pd
 
-# 1. Base Scoreboard Data
-players = [
-   {'Player': 'Mandy', 'Win': 3, 'Loss': 1, 'Draw': 0, 'Special': 0},
-   {'Player': 'Mario', 'Win': 1, 'Loss': 2, 'Draw': 1, 'Special': 0},
-   {'Player': 'Rowen', 'Win': 1, 'Loss': 3, 'Draw': 0, 'Special': 2},
-   {'Player': 'Arf',   'Win': 2, 'Loss': 1, 'Draw': 1, 'Special': 0}
-]
+st.set_page_config(page_title="Scoreboard & Matchup Calculator", page_icon="🏆", layout="wide")
 
-def get_player_stats(name):
-   for p in players:
-       if p['Player'] == name:
-           return p
-   return None
+st.title("🏆 Scoreboard & Pairwise Matchup Calculator")
+st.markdown("""
+This app converts your tournament scoreboard into an interactive web interface.
+You can edit player statistics on the fly, view customized ledger breakdowns, and see an automated results matrix.
+""")
 
-# 2. Main Logic Calculation
-def calculate_matchup(p1_name, p2_name):
-   p1 = get_player_stats(p1_name)
-   p2 = get_player_stats(p2_name)
+default_data = {
+'Player': ['Mandy', 'Mario', 'Rowen', 'Arf'],
+'Win': [3, 1, 1, 2],
+'Loss': [1, 2, 3, 1],
+'Draw': [0, 1, 0, 1],
+'Special': [0, 0, 2, 0]
+}
 
-   if not p1 or not p2:
-       return 0, 0, 0
+st.subheader("1. Overall Player Standings")
+st.markdown("💡 *Double-click any cell below to change a player's stats or add a new player. The matchups below will update automatically!*")
 
-   net_win = p1['Win'] + p2['Loss'] + p1['Special']
-   net_loss = p2['Win'] + p1['Loss'] + p2['Special']
-   total = net_win - net_loss
-   return net_win, net_loss, total
+edited_df = st.data_editor(pd.DataFrame(default_data), num_rows="dynamic", key="player_stats_editor", use_container_width=True)
 
-# 3. iPad UI Actions
-def update_calculator(sender):
-   # Get values from dropdown picks
-   p1 = v['player1_pick'].title
-   p2 = v['player2_pick'].title
+stats = edited_df.set_index('Player')
+player_list = edited_df['Player'].dropna().tolist()
 
-   if p1 == p2:
-       v['result_label'].text = "Select two different players."
-       return
+col1, col2 = st.columns([1, 1.2])
 
-   net_win, net_loss, total = calculate_matchup(p1, p2)
+with col1:
+st.subheader("2. Matchup Ledger Breakdown")
 
-   summary = (
-       f"Perspective: {p1} vs {p2}\n\n"
-       f"➕ Additions ({p1} Wins + {p2} Losses + {p1} Special): {net_win}\n"
-       f"➖ Deductions ({p2} Wins + {p1} Losses + {p2} Special): {net_loss}\n\n"
-       f"🏆 TOTAL POINTS FOR {p1.upper()}: {total:+}"
-   )
-   v['result_label'].text = summary
+if len(player_list) >= 2:
+p1 = st.selectbox("Select Player 1 (Perspective)", player_list, index=0)
+remaining_players = [p for p in player_list if p != p1]
+p2 = st.selectbox("Select Player 2 (Opponent)", remaining_players, index=0)
 
-def change_p1(sender):
-   names = [p['Player'] for p in players]
-   sel = dialogs.list_dialog('Select Player 1', names)
-   if sel:
-       sender.title = sel
-       update_calculator(None)
+p1_w = int(stats.loc[p1, 'Win'])
+p1_l = int(stats.loc[p1, 'Loss'])
+p1_s = int(stats.loc[p1, 'Special'])
 
-def change_p2(sender):
-   names = [p['Player'] for p in players]
-   sel = dialogs.list_dialog('Select Player 2', names)
-   if sel:
-       sender.title = sel
-       update_calculator(None)
+p2_w = int(stats.loc[p2, 'Win'])
+p2_l = int(stats.loc[p2, 'Loss'])
+p2_s = int(stats.loc[p2, 'Special'])
 
-def view_standings(sender):
-   # Display an interactive grid to edit stats right on the iPad
-   edited = dialogs.form_dialog(title="Edit Player Wins", fields=[
-       {'type': 'number', 'title': 'Mandy Wins', 'key': 'Mandy', 'value': players[0]['Win']},
-       {'type': 'number', 'title': 'Mario Wins', 'key': 'Mario', 'value': players[1]['Win']},
-       {'type': 'number', 'title': 'Rowen Wins', 'key': 'Rowen', 'value': players[2]['Win']},
-       {'type': 'number', 'title': 'Arf Wins',   'key': 'Arf',   'value': players[3]['Win']},
-   ])
-   if edited:
-       players[0]['Win'] = int(edited['Mandy'] or 0)
-       players[1]['Win'] = int(edited['Mario'] or 0)
-       players[2]['Win'] = int(edited['Rowen'] or 0)
-       players[3]['Win'] = int(edited['Arf'] or 0)
-       update_calculator(None)
+net_win = p1_w + p2_l + p1_s
+net_loss = p2_w + p1_l + p2_s
+total_score = net_win - net_loss
 
-# 4. Building the iPad View Layout
-v = ui.View()
-v.name = 'Scoreboard Calculator'
-v.background_color = '#f0f4f8'
+st.markdown(f"### 📊 Breakdown: **{p1}** vs **{p2}**")
+st.markdown(f"**Additions (Wins & Advantages):**")
+st.write(f"🔹 {p1} Wins: `{p1_w}`")
+st.write(f"🔹 Add: {p2} Losses: `{p2_l}`")
+st.write(f"🔹 {p1} Special: `{p1_s}`")
+st.info(f"**Net Win Subtotal:** `{net_win}`")
 
-# Headings & Layout Buttons
-lbl = ui.Label(frame=(20, 20, 300, 40), text="🏆 Matchup Pairwise Ledger", font=('<system-bold>', 20))
-v.add_subview(lbl)
+st.markdown(f"**Deductions (Losses & Disadvantages):**")
+st.write(f"🔸 Less: {p2} Wins: `{p2_w}`")
+st.write(f"🔸 {p1} Losses: `{p1_l}`")
+st.write(f"🔸 {p2} Special: `{p2_s}`")
+st.error(f"**Net Loss Subtotal:** `{net_loss}`")
 
-btn_edit = ui.Button(frame=(20, 70, 200, 40), title="✏️ Edit Player Wins Data")
-btn_edit.background_color = '#007fff'
-btn_edit.tint_color = 'white'
-btn_edit.corner_radius = 5
-btn_edit.action = view_standings
-v.add_subview(btn_edit)
+if total_score >= 0:
+st.success(f"### Total Points for {p1}: `+{total_score}`")
+else:
+st.error(f"### Total Points for {p1}: `{total_score}`")
+else:
+st.warning("Please ensure there are at least 2 players in the standings table.")
 
-# Selection controls
-lbl_vs = ui.Label(frame=(140, 145, 50, 40), text="VS", font=('<system-bold>', 16), alignment=ui.ALIGN_CENTER)
-v.add_subview(lbl_vs)
+with col2:
+st.subheader("3. Automated Pairwise Points Matrix")
+st.markdown("This matrix automatically displays the finalized **Total Points** for the player listed on the **Row** vs the player on the **Column**.")
 
-btn_p1 = ui.Button(name='player1_pick', frame=(20, 140, 110, 50), title="Mandy")
-btn_p1.background_color = '#ffffff'
-btn_p1.tint_color = '#333333'
-btn_p1.border_width = 1
-btn_p1.border_color = '#cccccc'
-btn_p1.action = change_p1
-v.add_subview(btn_p1)
+if len(player_list) > 0:
+matrix_df = pd.DataFrame(index=player_list, columns=player_list)
+for row_p in player_list:
+for col_p in player_list:
+if row_p == col_p:
+matrix_df.loc[row_p, col_p] = 0
+else:
+try:
+r_w, r_l, r_s = int(stats.loc[row_p, 'Win']), int(stats.loc[row_p, 'Loss']), int(stats.loc[row_p, 'Special'])
+c_w, c_l, c_s = int(stats.loc[col_p, 'Win']), int(stats.loc[col_p, 'Loss']), int(stats.loc[col_p, 'Special'])
 
-btn_p2 = ui.Button(name='player2_pick', frame=(200, 140, 110, 50), title="Mario")
-btn_p2.background_color = '#ffffff'
-btn_p2.tint_color = '#333333'
-btn_p2.border_width = 1
-btn_p2.border_color = '#cccccc'
-btn_p2.action = change_p2
-v.add_subview(btn_p2)
+n_win = r_w + c_l + r_s
+n_loss = c_w + r_l + c_s
+matrix_df.loc[row_p, col_p] = n_win - n_loss
+except:
+matrix_df.loc[row_p, col_p] = 0
 
-# Result Box
-res_box = ui.TextView(name='result_label', frame=(20, 210, 290, 200))
-res_box.font = ('<system>', 14)
-res_box.editable = False
-res_box.background_color = '#ffffff'
-res_box.border_width = 1
-res_box.border_color = '#e0e0e0'
-v.add_subview(res_box)
-
-# Present the app on iPad screen
-v.present('sheet')
-update_calculator(None)
+st.dataframe(
+matrix_df.style.background_gradient(cmap="coolwarm", axis=None).format("{:}"),
+use_container_width=True
+)
