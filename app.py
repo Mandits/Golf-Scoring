@@ -1,4 +1,4 @@
-import streamlit as st
+port streamlit as st
 import pandas as pd
 
 st.set_page_config(page_title="Scoreboard & Matchup Calculator", page_icon="🏆", layout="wide")
@@ -109,7 +109,5 @@ n_win = r_w + c_l + r_s
 n_loss = c_w + r_l + c_s
 matrix_df.loc[row_p, col_p] = n_win - n_loss
 
-st.dataframe(
-matrix_df.style.background_gradient(cmap="coolwarm", axis=None).format("{:}"),
-use_container_width=True
-)
+# Using a standard robust data view to prevent any file generation blocks
+st.dataframe(matrix_df, use_container_width=True)
