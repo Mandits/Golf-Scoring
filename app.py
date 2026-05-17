@@ -25,7 +25,7 @@ st.markdown("💡 *Double-click any cell below to change a player's stats or add
 df_players = pd.DataFrame(default_data)
 edited_df = st.data_editor(df_players, num_rows="dynamic", key="player_stats_editor", use_container_width=True)
 
-# Safety check for column presence
+# 1. Safety check for column presence
 if 'Player' not in edited_df.columns:
 st.error("⚠️ **Error:** The column named 'Player' was modified or deleted. Please make sure one column is titled exactly 'Player'.")
 st.stop()
@@ -33,23 +33,23 @@ st.stop()
 stats = edited_df.set_index('Player')
 player_list = edited_df['Player'].dropna().tolist()
 
-# --- SECTION 2: MATCHUP LEDGER BREAKDOWN ---
-st.markdown("---")
-st.subheader("2. Matchup Ledger Breakdown")
-
+# 2. Safety check for player count
 if len(player_list) < 2:
 st.warning("Please ensure there are at least 2 players in the standings table.")
 st.stop()
+
+# --- SECTION 2: MATCHUP LEDGER BREAKDOWN ---
+st.markdown("---")
+st.subheader("2. Matchup Ledger Breakdown")
 
 p1 = st.selectbox("Select Player 1 (Perspective)", player_list, index=0)
 remaining_players = [p for p in player_list if p != p1]
 p2 = st.selectbox("Select Player 2 (Opponent)", remaining_players, index=0)
 
-try:
+# Extract integers smoothly
 p1_w = int(stats.loc[p1, 'Win'])
 p1_l = int(stats.loc[p1, 'Loss'])
 p1_s = int(stats.loc[p1, 'Special'])
-
 p2_w = int(stats.loc[p2, 'Win'])
 p2_l = int(stats.loc[p2, 'Loss'])
 p2_s = int(stats.loc[p2, 'Special'])
@@ -75,30 +75,26 @@ if total_score >= 0:
 st.success(f"### Total Points for {p1}: `+{total_score}`")
 else:
 st.error(f"### Total Points for {p1}: `{total_score}`")
-except Exception as e:
-st.warning("Please fill out all numeric cells (Win, Loss, Special) for your players to see the calculation.")
 
 # --- SECTION 3: AUTOMATED PAIRWISE POINTS MATRIX ---
 st.markdown("---")
 st.subheader("3. Automated Pairwise Points Matrix")
 st.markdown("This matrix automatically displays the finalized **Total Points** for the player listed on the **Row** vs the player on the **Column**.")
 
-if len(player_list) > 0:
 matrix_df = pd.DataFrame(index=player_list, columns=player_list)
+
 for row_p in player_list:
 for col_p in player_list:
 if row_p == col_p:
 matrix_df.loc[row_p, col_p] = 0
-else:
-try:
+continue
+
 r_w, r_l, r_s = int(stats.loc[row_p, 'Win']), int(stats.loc[row_p, 'Loss']), int(stats.loc[row_p, 'Special'])
 c_w, c_l, c_s = int(stats.loc[col_p, 'Win']), int(stats.loc[col_p, 'Loss']), int(stats.loc[col_p, 'Special'])
 
 n_win = r_w + c_l + r_s
 n_loss = c_w + r_l + c_s
 matrix_df.loc[row_p, col_p] = n_win - n_loss
-except:
-matrix_df.loc[row_p, col_p] = 0
 
 st.dataframe(
 matrix_df.style.background_gradient(cmap="coolwarm", axis=None).format("{:}"),
