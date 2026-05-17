@@ -25,21 +25,22 @@ st.markdown("💡 *Double-click any cell below to change a player's stats or add
 df_players = pd.DataFrame(default_data)
 edited_df = st.data_editor(df_players, num_rows="dynamic", key="player_stats_editor", use_container_width=True)
 
-# --- SAFETY CHECK FOR KEYERROR ---
+# Safety check for column presence
 if 'Player' not in edited_df.columns:
-st.error("⚠️ **Error:** The column named 'Player' was modified or deleted. Please make sure one column is titled exactly 'Player' so the matchup calculations can work.")
-else:
-# Safely pull data now that we know 'Player' exists
+st.error("⚠️ **Error:** The column named 'Player' was modified or deleted. Please make sure one column is titled exactly 'Player'.")
+st.stop()
+
 stats = edited_df.set_index('Player')
 player_list = edited_df['Player'].dropna().tolist()
 
-# Layout partitions
-col1, col2 = st.columns([1, 1.2])
-
-with col1:
+# --- SECTION 2: MATCHUP LEDGER BREAKDOWN ---
+st.markdown("---")
 st.subheader("2. Matchup Ledger Breakdown")
 
-if len(player_list) >= 2:
+if len(player_list) < 2:
+st.warning("Please ensure there are at least 2 players in the standings table.")
+st.stop()
+
 p1 = st.selectbox("Select Player 1 (Perspective)", player_list, index=0)
 remaining_players = [p for p in player_list if p != p1]
 p2 = st.selectbox("Select Player 2 (Opponent)", remaining_players, index=0)
@@ -76,10 +77,9 @@ else:
 st.error(f"### Total Points for {p1}: `{total_score}`")
 except Exception as e:
 st.warning("Please fill out all numeric cells (Win, Loss, Special) for your players to see the calculation.")
-else:
-st.warning("Please ensure there are at least 2 players in the standings table.")
 
-with col2:
+# --- SECTION 3: AUTOMATED PAIRWISE POINTS MATRIX ---
+st.markdown("---")
 st.subheader("3. Automated Pairwise Points Matrix")
 st.markdown("This matrix automatically displays the finalized **Total Points** for the player listed on the **Row** vs the player on the **Column**.")
 
