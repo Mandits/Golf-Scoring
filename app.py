@@ -9,12 +9,20 @@ This app converts your tournament scoreboard into an interactive web interface.
 Adjust player stats using the panel below to update calculations instantly.
 """)
 
-# 1. Initialize stable scoreboard memory
+# 1. Initialize stable scoreboard memory cleanly on separate lines
 if 'mandy_w' not in st.session_state:
-st.session_state.mandy_w, st.session_state.mandy_l, st.session_state.mandy_s = 3, 1, 0
-st.session_state.mario_w, st.session_state.mario_l, st.session_state.mario_s = 1, 2, 0
-st.session_state.rowen_w, st.session_state.rowen_l, st.session_state.rowen_s = 1, 3, 2
-st.session_state.arf_w, st.session_state.arf_l, st.session_state.arf_s = 2, 1, 0
+st.session_state.mandy_w = 3
+st.session_state.mandy_l = 1
+st.session_state.mandy_s = 0
+st.session_state.mario_w = 1
+st.session_state.mario_l = 2
+st.session_state.mario_s = 0
+st.session_state.rowen_w = 1
+st.session_state.rowen_l = 3
+st.session_state.rowen_s = 2
+st.session_state.arf_w = 2
+st.session_state.arf_l = 1
+st.session_state.arf_s = 0
 
 # --- SECTION 1: EDIT PLAYER STATS (MOBILE OPTIMIZED) ---
 st.subheader("1. Update Player Statistics")
