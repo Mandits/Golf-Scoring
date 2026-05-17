@@ -6,62 +6,51 @@ st.set_page_config(page_title="Scoreboard & Matchup Calculator", page_icon="🏆
 st.title("🏆 Scoreboard & Pairwise Matchup Calculator")
 st.markdown("""
 This app converts your tournament scoreboard into an interactive web interface.
-You can edit player statistics on the fly, view customized ledger breakdowns, and see an automated results matrix.
+Adjust player stats using the panel below to update calculations instantly.
 """)
 
-# 1. Store initial scoreboard row data securely in persistent session memory
-if 'main_scores' not in st.session_state:
-st.session_state.main_scores = {
-'Mandy': {'Win': 3, 'Loss': 1, 'Draw': 0, 'Special': 0},
-'Mario': {'Win': 1, 'Loss': 2, 'Draw': 1, 'Special': 0},
-'Rowen': {'Win': 1, 'Loss': 3, 'Draw': 0, 'Special': 2},
-'Arf': {'Win': 2, 'Loss': 1, 'Draw': 1, 'Special': 0}
+# 1. Initialize stable scoreboard memory
+if 'mandy_w' not in st.session_state:
+st.session_state.mandy_w, st.session_state.mandy_l, st.session_state.mandy_s = 3, 1, 0
+st.session_state.mario_w, st.session_state.mario_l, st.session_state.mario_s = 1, 2, 0
+st.session_state.rowen_w, st.session_state.rowen_l, st.session_state.rowen_s = 1, 3, 2
+st.session_state.arf_w, st.session_state.arf_l, st.session_state.arf_s = 2, 1, 0
+
+# --- SECTION 1: EDIT PLAYER STATS (MOBILE OPTIMIZED) ---
+st.subheader("1. Update Player Statistics")
+edit_player = st.selectbox("Select a player to modify:", ["Mandy", "Mario", "Rowen", "Arf"])
+
+if edit_player == "Mandy":
+st.session_state.mandy_w = st.number_input("Mandy Wins", value=st.session_state.mandy_w, step=1)
+st.session_state.mandy_l = st.number_input("Mandy Losses", value=st.session_state.mandy_l, step=1)
+st.session_state.mandy_s = st.number_input("Mandy Special Points", value=st.session_state.mandy_s, step=1)
+elif edit_player == "Mario":
+st.session_state.mario_w = st.number_input("Mario Wins", value=st.session_state.mario_w, step=1)
+st.session_state.mario_l = st.number_input("Mario Losses", value=st.session_state.mario_l, step=1)
+st.session_state.mario_s = st.number_input("Mario Special Points", value=st.session_state.mario_s, step=1)
+elif edit_player == "Rowen":
+st.session_state.rowen_w = st.number_input("Rowen Wins", value=st.session_state.rowen_w, step=1)
+st.session_state.rowen_l = st.number_input("Rowen Losses", value=st.session_state.rowen_l, step=1)
+st.session_state.rowen_s = st.number_input("Rowen Special Points", value=st.session_state.rowen_s, step=1)
+elif edit_player == "Arf":
+st.session_state.arf_w = st.number_input("Arf Wins", value=st.session_state.arf_w, step=1)
+st.session_state.arf_l = st.number_input("Arf Losses", value=st.session_state.arf_l, step=1)
+st.session_state.arf_s = st.number_input("Arf Special Points", value=st.session_state.arf_s, step=1)
+
+# Compile current memory state into a clean dictionary
+active_scores = {
+"Mandy": {"Win": st.session_state.mandy_w, "Loss": st.session_state.mandy_l, "Special": st.session_state.mandy_s},
+"Mario": {"Win": st.session_state.mario_w, "Loss": st.session_state.mario_l, "Special": st.session_state.mario_s},
+"Rowen": {"Win": st.session_state.rowen_w, "Loss": st.session_state.rowen_l, "Special": st.session_state.rowen_s},
+"Arf": {"Win": st.session_state.arf_w, "Loss": st.session_state.arf_l, "Special": st.session_state.arf_s}
 }
 
-st.subheader("1. Overall Player Standings")
-st.markdown("💡 *Modify numbers below to update calculations instantly. To add/change players, use the menu parameters below.*")
+# Display overall standings grid
+st.markdown("### Current Standings Table")
+display_df = pd.DataFrame.from_dict(active_scores, orient='index')
+st.dataframe(display_df, use_container_width=True)
 
-# Helper tool to clean up inputs
-def safe_int(val):
-if val is None or pd.isna(val) or val == "":
-return 0
-try:
-return int(float(val))
-except:
-return 0
-
-# Display data editor using a clean, static dataframe constructed from our secure memory
-display_df = pd.DataFrame.from_dict(st.session_state.main_scores, orient='index').reset_index()
-display_df.rename(columns={'index': 'Player'}, inplace=True)
-
-# Render interactive grid
-user_updates = st.data_editor(display_df, num_rows="dynamic", use_container_width=True)
-
-# Manually extract the values safely to rebuild our internal memory dictionary
-stats_dict = {}
-try:
-if isinstance(user_updates, pd.DataFrame):
-for _, row in user_updates.iterrows():
-p_name = str(row.get('Player', '')).strip()
-if p_name and p_name != 'None' and p_name != 'nan':
-stats_dict[p_name] = {
-'Win': safe_int(row.get('Win', 0)),
-'Loss': safe_int(row.get('Loss', 0)),
-'Special': safe_int(row.get('Special', 0))
-}
-# Update session storage state dynamically
-st.session_state.main_scores = stats_dict
-except:
-pass
-
-# Use our secure local dictionary for all calculations below
-active_scores = st.session_state.main_scores
 player_list = list(active_scores.keys())
-
-# Safety check for active player count
-if len(player_list) < 2:
-st.warning("Please ensure there are at least 2 players in the standings table to run matchups.")
-st.stop()
 
 # --- SECTION 2: MATCHUP LEDGER BREAKDOWN ---
 st.markdown("---")
@@ -71,16 +60,13 @@ p1 = st.selectbox("Select Player 1 (Perspective)", player_list, index=0)
 remaining_players = [p for p in player_list if p != p1]
 p2 = st.selectbox("Select Player 2 (Opponent)", remaining_players, index=0)
 
-p1_data = active_scores.get(p1, {'Win': 0, 'Loss': 0, 'Special': 0})
-p2_data = active_scores.get(p2, {'Win': 0, 'Loss': 0, 'Special': 0})
+p1_w = active_scores[p1]["Win"]
+p1_l = active_scores[p1]["Loss"]
+p1_s = active_scores[p1]["Special"]
 
-p1_w = p1_data.get('Win', 0)
-p1_l = p1_data.get('Loss', 0)
-p1_s = p1_data.get('Special', 0)
-
-p2_w = p2_data.get('Win', 0)
-p2_l = p2_data.get('Loss', 0)
-p2_s = p2_data.get('Special', 0)
+p2_w = active_scores[p2]["Win"]
+p2_l = active_scores[p2]["Loss"]
+p2_s = active_scores[p2]["Special"]
 
 net_win = p1_w + p2_l + p1_s
 net_loss = p2_w + p1_l + p2_s
@@ -117,11 +103,8 @@ if row_p == col_p:
 matrix_df.loc[row_p, col_p] = 0
 continue
 
-r_data = active_scores.get(row_p, {'Win': 0, 'Loss': 0, 'Special': 0})
-c_data = active_scores.get(col_p, {'Win': 0, 'Loss': 0, 'Special': 0})
-
-n_win = r_data.get('Win', 0) + c_data.get('Loss', 0) + r_data.get('Special', 0)
-n_loss = c_data.get('Win', 0) + r_data.get('Loss', 0) + c_data.get('Special', 0)
+n_win = active_scores[row_p]["Win"] + active_scores[col_p]["Loss"] + active_scores[row_p]["Special"]
+n_loss = active_scores[col_p]["Win"] + active_scores[row_p]["Loss"] + active_scores[col_p]["Special"]
 matrix_df.loc[row_p, col_p] = n_win - n_loss
 
 st.dataframe(matrix_df, use_container_width=True)
