@@ -1,88 +1,81 @@
+import streamlit as st
 import pandas as pd
-import numpy as np
 
-def automate_points_sheet(input_csv_path, output_csv_path):
-# 1. Load the spreadsheet data
-df = pd.read_csv(input_csv_path, header=None)
+st.set_page_config(page_title="Scoreboard & Matchup Calculator", page_icon="🏆", layout="wide")
 
-# Initialize a tracking dictionary for the summary table
-player_totals = {
-'Mandy': {'Win': 0.0, 'Loss': 0.0, 'Draw': 0.0, 'Special': 0.0},
-'Mario': {'Win': 0.0, 'Loss': 0.0, 'Draw': 0.0, 'Special': 0.0},
-'Rowen': {'Win': 0.0, 'Loss': 0.0, 'Draw': 0.0, 'Special': 0.0},
-'Arf': {'Win': 0.0, 'Loss': 0.0, 'Draw': 0.0, 'Special': 0.0}
+st.title("🏆 Scoreboard & Pairwise Matchup Calculator")
+st.markdown("This app converts your tournament scoreboard into an interactive web interface. Adjust player stats using the panel below to update calculations instantly.")
+
+st.subheader("1. Update Player Statistics")
+edit_player = st.selectbox("Select a player to modify:", ["Mandy", "Mario", "Rowen", "Arf"])
+
+st.session_state.current_w = st.number_input("Selected Player Wins", value=1, step=1)
+st.session_state.current_l = st.number_input("Selected Player Losses", value=1, step=1)
+st.session_state.current_s = st.number_input("Selected Player Special Points", value=0, step=1)
+
+active_scores = {
+"Mandy": {"Win": 3, "Loss": 1, "Special": 0},
+"Mario": {"Win": 1, "Loss": 2, "Special": 0},
+"Rowen": {"Win": 1, "Loss": 3, "Special": 2},
+"Arf": {"Win": 2, "Loss": 1, "Special": 0}
 }
 
-# Define layout coordinates for the 6 matchup blocks:
-# (row_start, name_col, label_col, value_col)
-matchup_blocks = [
-(6, 0, 1, 2), # Mandy-Mario
-(6, 4, 5, 6), # Mandy-Rowen
-(6, 8, 9, 10), # Mandy-Arf
-(17, 0, 1, 2), # Arf-Mario
-(17, 4, 5, 6), # Arf-Rowen
-(17, 8, 9, 10), # Rowen-Mario
-]
+active_scores[edit_player]["Win"] = st.session_state.current_w
+active_scores[edit_player]["Loss"] = st.session_state.current_l
+active_scores[edit_player]["Special"] = st.session_state.current_s
 
-# 2. Iterate through each matchup block and perform calculations
-for r_start, name_col, label_col, value_col in matchup_blocks:
-matchup_name = df.iloc[r_start, name_col]
-if pd.isna(matchup_name):
-continue
+st.markdown("### Current Standings Table")
+display_df = pd.DataFrame.from_dict(active_scores, orient='index')
+st.dataframe(display_df, use_container_width=True)
 
-# Extract individual player names from the block header (e.g., "Mandy-Mario")
-p1, p2 = matchup_name.split('-')
+st.markdown("---")
+st.subheader("2. Matchup Ledger Breakdown")
 
-# Helper function to safely convert cell values to floats
-def clean_val(row_offset):
-val = df.iloc[r_start + row_offset, value_col]
-try:
-return float(val) if not pd.isna(val) else 0.0
-except ValueError:
-return 0.0
+p1 = st.selectbox("Select Player 1 (Perspective)", ["Mandy", "Mario", "Rowen", "Arf"], index=0)
+p2 = st.selectbox("Select Player 2 (Opponent)", ["Mandy", "Mario", "Rowen", "Arf"], index=1)
 
-# Read the raw user inputs for the matchup
-p1_wins = clean_val(1) # e.g., Mandy wins
-p2_loss = clean_val(2) # e.g., Mario Loss
-p1_special = clean_val(3) # e.g., Mandy Special
+p1_w = active_scores[p1]["Win"]
+p1_l = active_scores[p1]["Loss"]
+p1_s = active_scores[p1]["Special"]
+p2_w = active_scores[p2]["Win"]
+p2_l = active_scores[p2]["Loss"]
+p2_s = active_scores[p2]["Special"]
 
-p2_win = clean_val(5) # e.g., Mario Win
-p1_loss = clean_val(6) # e.g., Mandy Loss
-p2_special = clean_val(7) # e.g., Mario Special
+net_win = p1_w + p2_l + p1_s
+net_loss = p2_w + p1_l + p2_s
+total_score = net_win - net_loss
 
-# Calculate intermediate fields
-net_win = p1_wins + p2_loss + p1_special
-net_loss = p2_win + p1_loss + p2_special
-total = net_win - net_loss
+st.markdown(f"### 📊 Breakdown: **{p1}** vs **{p2}**")
+st.write(f"🔹 {p1} Wins: `{p1_w}` | Add {p2} Losses: `{p2_l}` | {p1} Special: `{p1_s}`")
+st.info(f"**Net Win Subtotal:** `{net_win}`")
+st.write(f"🔸 Less {p2} Wins: `{p2_w}` | {p1} Losses: `{p1_l}` | {p2} Special: `{p2_s}`")
+st.error(f"**Net Loss Subtotal:** `{net_loss}`")
 
-# Write calculated fields back to the DataFrame
-df.iloc[r_start + 4, value_col] = net_win # Net win row
-df.iloc[r_start + 8, value_col] = net_loss # Net Loss row
-df.iloc[r_start + 9, value_col] = total # Total row
+st.success(f"### Total Points for {p1}: `{total_score}`")
 
-# Accumulate metrics for the summary table
-if p1 in player_totals:
-player_totals[p1]['Win'] += p1_wins
-player_totals[p1]['Loss'] += p1_loss
-player_totals[p1]['Special'] += p1_special
-if p2 in player_totals:
-player_totals[p2]['Win'] += p2_win
-player_totals[p2]['Loss'] += p2_loss
-player_totals[p2]['Special'] += p2_special
+st.markdown("---")
+st.subheader("3. Automated Pairwise Points Matrix")
 
-# 3. Populate the Master Summary Table (Rows 1 to 4, Columns E to H)
-player_row_indices = {df.iloc[r, 3]: r for r in range(1, 5) if not pd.isna(df.iloc[r, 3])}
+matrix_df = pd.DataFrame(index=["Mandy", "Mario", "Rowen", "Arf"], columns=["Mandy", "Mario", "Rowen", "Arf"])
 
-for player, row_idx in player_row_indices.items():
-if player in player_totals:
-df.iloc[row_idx, 4] = player_totals[player]['Win'] # Column E
-df.iloc[row_idx, 5] = player_totals[player]['Loss'] # Column F
-df.iloc[row_idx, 6] = player_totals[player]['Draw'] # Column G
-df.iloc[row_idx, 7] = player_totals[player]['Special'] # Column H
+matrix_df.loc["Mandy", "Mandy"] = 0
+matrix_df.loc["Mandy", "Mario"] = (active_scores["Mandy"]["Win"] + active_scores["Mario"]["Loss"] + active_scores["Mandy"]["Special"]) - (active_scores["Mario"]["Win"] + active_scores["Mandy"]["Loss"] + active_scores["Mario"]["Special"])
+matrix_df.loc["Mandy", "Rowen"] = (active_scores["Mandy"]["Win"] + active_scores["Rowen"]["Loss"] + active_scores["Mandy"]["Special"]) - (active_scores["Rowen"]["Win"] + active_scores["Mandy"]["Loss"] + active_scores["Rowen"]["Special"])
+matrix_df.loc["Mandy", "Arf"] = (active_scores["Mandy"]["Win"] + active_scores["Arf"]["Loss"] + active_scores["Mandy"]["Special"]) - (active_scores["Arf"]["Win"] + active_scores["Mandy"]["Loss"] + active_scores["Arf"]["Special"])
 
-# 4. Save the fully updated sheet
-df.to_csv(output_csv_path, index=False, header=False)
-print(f"Successfully processed and updated points sheet saved to: {output_csv_path}")
+matrix_df.loc["Mario", "Mandy"] = (active_scores["Mario"]["Win"] + active_scores["Mandy"]["Loss"] + active_scores["Mario"]["Special"]) - (active_scores["Mandy"]["Win"] + active_scores["Mario"]["Loss"] + active_scores["Mandy"]["Special"])
+matrix_df.loc["Mario", "Mario"] = 0
+matrix_df.loc["Mario", "Rowen"] = (active_scores["Mario"]["Win"] + active_scores["Rowen"]["Loss"] + active_scores["Mario"]["Special"]) - (active_scores["Rowen"]["Win"] + active_scores["Mario"]["Loss"] + active_scores["Rowen"]["Special"])
+matrix_df.loc["Mario", "Arf"] = (active_scores["Mario"]["Win"] + active_scores["Arf"]["Loss"] + active_scores["Mario"]["Special"]) - (active_scores["Arf"]["Win"] + active_scores["Mario"]["Loss"] + active_scores["Arf"]["Special"])
 
-# Run the automation script
-automate_points_sheet("Puitns.xlsx - Sheet1.csv", "Processed_Points.csv")
+matrix_df.loc["Rowen", "Mandy"] = (active_scores["Rowen"]["Win"] + active_scores["Mandy"]["Loss"] + active_scores["Rowen"]["Special"]) - (active_scores["Mandy"]["Win"] + active_scores["Rowen"]["Loss"] + active_scores["Mandy"]["Special"])
+matrix_df.loc["Rowen", "Mario"] = (active_scores["Rowen"]["Win"] + active_scores["Mario"]["Loss"] + active_scores["Rowen"]["Special"]) - (active_scores["Mario"]["Win"] + active_scores["Rowen"]["Loss"] + active_scores["Mario"]["Special"])
+matrix_df.loc["Rowen", "Rowen"] = 0
+matrix_df.loc["Rowen", "Arf"] = (active_scores["Rowen"]["Win"] + active_scores["Arf"]["Loss"] + active_scores["Rowen"]["Special"]) - (active_scores["Arf"]["Win"] + active_scores["Rowen"]["Loss"] + active_scores["Arf"]["Special"])
+
+matrix_df.loc["Arf", "Mandy"] = (active_scores["Arf"]["Win"] + active_scores["Mandy"]["Loss"] + active_scores["Arf"]["Special"]) - (active_scores["Mandy"]["Win"] + active_scores["Arf"]["Loss"] + active_scores["Mandy"]["Special"])
+matrix_df.loc["Arf", "Mario"] = (active_scores["Arf"]["Win"] + active_scores["Mario"]["Loss"] + active_scores["Arf"]["Special"]) - (active_scores["Mario"]["Win"] + active_scores["Arf"]["Loss"] + active_scores["Mario"]["Special"])
+matrix_df.loc["Arf", "Rowen"] = (active_scores["Arf"]["Win"] + active_scores["Rowen"]["Loss"] + active_scores["Arf"]["Special"]) - (active_scores["Rowen"]["Win"] + active_scores["Arf"]["Loss"] + active_scores["Rowen"]["Special"])
+matrix_df.loc["Arf", "Arf"] = 0
+
+st.dataframe(matrix_df, use_container_width=True)
