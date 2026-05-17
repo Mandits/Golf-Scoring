@@ -6,61 +6,81 @@ st.set_page_config(page_title="Scoreboard & Matchup Calculator", page_icon="🏆
 st.title("🏆 Scoreboard & Pairwise Matchup Calculator")
 st.markdown("""
 This app converts your tournament scoreboard into an interactive web interface.
-Adjust player stats using the panel below to update calculations instantly.
+You can edit player statistics on the fly, view customized ledger breakdowns, and see an automated results matrix.
 """)
 
-# 1. Initialize stable scoreboard memory cleanly
-players = ["Mandy", "Mario", "Rowen", "Arf"]
-defaults = {
-"Mandy": [3, 1, 0],
-"Mario": [1, 2, 0],
-"Rowen": [1, 3, 2],
-"Arf": [2, 1, 0]
+# 1. Initialize stable starting data in the app backend memory cache
+if 'scoreboard_data' not in st.session_state:
+st.session_state.scoreboard_data = pd.DataFrame({
+'Player': ['Mandy', 'Mario', 'Rowen', 'Arf'],
+'Win': [3, 1, 1, 2],
+'Loss': [1, 2, 3, 1],
+'Draw': [0, 1, 0, 1],
+'Special': [0, 0, 2, 0]
+})
+
+st.subheader("1. Overall Player Standings")
+st.markdown("💡 *Double-click any cell below to change a player's stats or add a new row. Keep the column name as 'Player'!*")
+
+# Helper function to completely eliminate blank cell crashes
+def safe_int(val):
+if val is None or pd.isna(val) or val == "":
+return 0
+try:
+return int(float(val))
+except:
+return 0
+
+# Create the interactive editor linked directly to stable memory dataframe
+edited_output = st.data_editor(st.session_state.scoreboard_data, num_rows="dynamic", use_container_width=True)
+
+# Process data changes safely by manually updating the session state instead of using custom keys
+if isinstance(edited_output, pd.DataFrame):
+st.session_state.scoreboard_data = edited_output
+
+stable_df = st.session_state.scoreboard_data
+
+# Ensure 'Player' column is present in our stable dataframe
+if 'Player' not in stable_df.columns:
+st.error("⚠️ **Error:** The column named 'Player' was modified or deleted. Please make sure one column is titled exactly 'Player'.")
+st.stop()
+
+# Convert rows to lookup dictionary manually without using fragile .set_index() commands
+stats_dict = {}
+for _, row in stable_df.dropna(subset=['Player']).iterrows():
+p_name = str(row['Player']).strip()
+if p_name:
+stats_dict[p_name] = {
+'Win': safe_int(row.get('Win', 0)),
+'Loss': safe_int(row.get('Loss', 0)),
+'Special': safe_int(row.get('Special', 0))
 }
 
-for p in players:
-if f"{p}_w" not in st.session_state:
-st.session_state[f"{p}_w"] = defaults[p][0]
-st.session_state[f"{p}_l"] = defaults[p][1]
-st.session_state[f"{p}_s"] = defaults[p][2]
+player_list = list(stats_dict.keys())
 
-# --- SECTION 1: EDIT PLAYER STATS ---
-st.subheader("1. Update Player Statistics")
-edit_player = st.selectbox("Select a player to modify:", players)
-
-# Flat, sequential inputs with zero indentation traps
-st.session_state[f"{edit_player}_w"] = st.number_input(f"{edit_player} Wins", value=st.session_state[f"{edit_player}_w"], step=1)
-st.session_state[f"{edit_player}_l"] = st.number_input(f"{edit_player} Losses", value=st.session_state[f"{edit_player}_l"], step=1)
-st.session_state[f"{edit_player}_s"] = st.number_input(f"{edit_player} Special Points", value=st.session_state[f"{edit_player}_s"], step=1)
-
-# Compile current memory state into a clean dictionary
-active_scores = {}
-for p in players:
-active_scores[p] = {
-"Win": st.session_state[f"{p}_w"],
-"Loss": st.session_state[f"{p}_l"],
-"Special": st.session_state[f"{p}_s"]
-}
-
-st.markdown("### Current Standings Table")
-display_df = pd.DataFrame.from_dict(active_scores, orient='index')
-st.dataframe(display_df, use_container_width=True)
+# 2. Safety check for player count
+if len(player_list) < 2:
+st.warning("Please ensure there are at least 2 players in the standings table.")
+st.stop()
 
 # --- SECTION 2: MATCHUP LEDGER BREAKDOWN ---
 st.markdown("---")
 st.subheader("2. Matchup Ledger Breakdown")
 
-p1 = st.selectbox("Select Player 1 (Perspective)", players, index=0)
-remaining_players = [p for p in players if p != p1]
+p1 = st.selectbox("Select Player 1 (Perspective)", player_list, index=0)
+remaining_players = [p for p in player_list if p != p1]
 p2 = st.selectbox("Select Player 2 (Opponent)", remaining_players, index=0)
 
-p1_w = active_scores[p1]["Win"]
-p1_l = active_scores[p1]["Loss"]
-p1_s = active_scores[p1]["Special"]
+p1_data = stats_dict.get(p1, {'Win': 0, 'Loss': 0, 'Special': 0})
+p2_data = stats_dict.get(p2, {'Win': 0, 'Loss': 0, 'Special': 0})
 
-p2_w = active_scores[p2]["Win"]
-p2_l = active_scores[p2]["Loss"]
-p2_s = active_scores[p2]["Special"]
+p1_w = p1_data['Win']
+p1_l = p1_data['Loss']
+p1_s = p1_data['Special']
+
+p2_w = p2_data['Win']
+p2_l = p2_data['Loss']
+p2_s = p2_data['Special']
 
 net_win = p1_w + p2_l + p1_s
 net_loss = p2_w + p1_l + p2_s
@@ -89,16 +109,19 @@ st.markdown("---")
 st.subheader("3. Automated Pairwise Points Matrix")
 st.markdown("This matrix automatically displays the finalized **Total Points** for the player listed on the **Row** vs the player on the **Column**.")
 
-matrix_df = pd.DataFrame(index=players, columns=players)
+matrix_df = pd.DataFrame(index=player_list, columns=player_list)
 
-for row_p in players:
-for col_p in players:
+for row_p in player_list:
+for col_p in player_list:
 if row_p == col_p:
 matrix_df.loc[row_p, col_p] = 0
 continue
 
-n_win = active_scores[row_p]["Win"] + active_scores[col_p]["Loss"] + active_scores[row_p]["Special"]
-n_loss = active_scores[col_p]["Win"] + active_scores[row_p]["Loss"] + active_scores[col_p]["Special"]
+r_data = stats_dict.get(row_p, {'Win': 0, 'Loss': 0, 'Special': 0})
+c_data = stats_dict.get(col_p, {'Win': 0, 'Loss': 0, 'Special': 0})
+
+n_win = r_data['Win'] + c_data['Loss'] + r_data['Special']
+n_loss = c_data['Win'] + r_data['Loss'] + c_data['Special']
 matrix_df.loc[row_p, col_p] = n_win - n_loss
 
 st.dataframe(matrix_df, use_container_width=True)
