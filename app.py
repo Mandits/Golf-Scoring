@@ -30,8 +30,9 @@ if 'Player' not in edited_df.columns:
 st.error("⚠️ **Error:** The column named 'Player' was modified or deleted. Please make sure one column is titled exactly 'Player'.")
 st.stop()
 
-stats = edited_df.set_index('Player')
-player_list = edited_df['Player'].dropna().tolist()
+# Safely convert data to a dictionary lookup to prevent KeyErrors entirely
+stats_dict = edited_df.dropna(subset=['Player']).set_index('Player').to_dict(orient='index')
+player_list = list(stats_dict.keys())
 
 # 2. Safety check for player count
 if len(player_list) < 2:
@@ -46,13 +47,17 @@ p1 = st.selectbox("Select Player 1 (Perspective)", player_list, index=0)
 remaining_players = [p for p in player_list if p != p1]
 p2 = st.selectbox("Select Player 2 (Opponent)", remaining_players, index=0)
 
-# Extract integers smoothly
-p1_w = int(stats.loc[p1, 'Win'])
-p1_l = int(stats.loc[p1, 'Loss'])
-p1_s = int(stats.loc[p1, 'Special'])
-p2_w = int(stats.loc[p2, 'Win'])
-p2_l = int(stats.loc[p2, 'Loss'])
-p2_s = int(stats.loc[p2, 'Special'])
+# Bulletproof fallback using .get() to prevent any missing key crashes
+p1_data = stats_dict.get(p1, {'Win': 0, 'Loss': 0, 'Special': 0})
+p2_data = stats_dict.get(p2, {'Win': 0, 'Loss': 0, 'Special': 0})
+
+p1_w = int(p1_data.get('Win', 0) or 0)
+p1_l = int(p1_data.get('Loss', 0) or 0)
+p1_s = int(p1_data.get('Special', 0) or 0)
+
+p2_w = int(p2_data.get('Win', 0) or 0)
+p2_l = int(p2_data.get('Loss', 0) or 0)
+p2_s = int(p2_data.get('Special', 0) or 0)
 
 net_win = p1_w + p2_l + p1_s
 net_loss = p2_w + p1_l + p2_s
@@ -89,8 +94,16 @@ if row_p == col_p:
 matrix_df.loc[row_p, col_p] = 0
 continue
 
-r_w, r_l, r_s = int(stats.loc[row_p, 'Win']), int(stats.loc[row_p, 'Loss']), int(stats.loc[row_p, 'Special'])
-c_w, c_l, c_s = int(stats.loc[col_p, 'Win']), int(stats.loc[col_p, 'Loss']), int(stats.loc[col_p, 'Special'])
+r_data = stats_dict.get(row_p, {'Win': 0, 'Loss': 0, 'Special': 0})
+c_data = stats_dict.get(col_p, {'Win': 0, 'Loss': 0, 'Special': 0})
+
+r_w = int(r_data.get('Win', 0) or 0)
+r_l = int(r_data.get('Loss', 0) or 0)
+r_s = int(r_data.get('Special', 0) or 0)
+
+c_w = int(c_data.get('Win', 0) or 0)
+c_l = int(c_data.get('Loss', 0) or 0)
+c_s = int(c_data.get('Special', 0) or 0)
 
 n_win = r_w + c_l + r_s
 n_loss = c_w + r_l + c_s
