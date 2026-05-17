@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="Scoreboard & Matchup Calculator", page_icon="🏆", layout="wide")
+st.set_page_config(page_title="Golf Scoreboard & Matchup Calculator", page_icon="🏆", layout="wide")
 
-st.title("🏆 Scoreboard & Pairwise Matchup Calculator")
+st.title("🏆 Golf Scoreboard & Pairwise Matchup Calculator")
 st.markdown("This app converts your tournament scoreboard into an interactive web interface. Adjust player stats using the panel below to update calculations instantly.")
 
 st.subheader("1. Update Player Statistics")
