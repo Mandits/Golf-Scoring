@@ -9,6 +9,7 @@ This app converts your tournament scoreboard into an interactive web interface.
 You can edit player statistics on the fly, view customized ledger breakdowns, and see an automated results matrix.
 """)
 
+# Default starting data
 default_data = {
 'Player': ['Mandy', 'Mario', 'Rowen', 'Arf'],
 'Win': [3, 1, 1, 2],
@@ -18,13 +19,21 @@ default_data = {
 }
 
 st.subheader("1. Overall Player Standings")
-st.markdown("💡 *Double-click any cell below to change a player's stats or add a new player. The matchups below will update automatically!*")
+st.markdown("💡 *Double-click any cell below to change a player's stats or add a new row. Keep the column name as 'Player'!*")
 
-edited_df = st.data_editor(pd.DataFrame(default_data), num_rows="dynamic", key="player_stats_editor", use_container_width=True)
+# Create the interactive editor
+df_players = pd.DataFrame(default_data)
+edited_df = st.data_editor(df_players, num_rows="dynamic", key="player_stats_editor", use_container_width=True)
 
+# --- SAFETY CHECK FOR KEYERROR ---
+if 'Player' not in edited_df.columns:
+st.error("⚠️ **Error:** The column named 'Player' was modified or deleted. Please make sure one column is titled exactly 'Player' so the matchup calculations can work.")
+else:
+# Safely pull data now that we know 'Player' exists
 stats = edited_df.set_index('Player')
 player_list = edited_df['Player'].dropna().tolist()
 
+# Layout partitions
 col1, col2 = st.columns([1, 1.2])
 
 with col1:
@@ -35,6 +44,7 @@ p1 = st.selectbox("Select Player 1 (Perspective)", player_list, index=0)
 remaining_players = [p for p in player_list if p != p1]
 p2 = st.selectbox("Select Player 2 (Opponent)", remaining_players, index=0)
 
+try:
 p1_w = int(stats.loc[p1, 'Win'])
 p1_l = int(stats.loc[p1, 'Loss'])
 p1_s = int(stats.loc[p1, 'Special'])
@@ -64,6 +74,8 @@ if total_score >= 0:
 st.success(f"### Total Points for {p1}: `+{total_score}`")
 else:
 st.error(f"### Total Points for {p1}: `{total_score}`")
+except Exception as e:
+st.warning("Please fill out all numeric cells (Win, Loss, Special) for your players to see the calculation.")
 else:
 st.warning("Please ensure there are at least 2 players in the standings table.")
 
