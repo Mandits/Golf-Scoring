@@ -32,20 +32,25 @@ except:
 return 0
 
 # Create the interactive editor linked directly to stable memory
-edited_df = st.data_editor(st.session_state.scoreboard_data, num_rows="dynamic", key="player_stats_editor", use_container_width=True)
+edited_output = st.data_editor(st.session_state.scoreboard_data, num_rows="dynamic", key="player_stats_editor", use_container_width=True)
 
-# Force save any edits safely back into memory
-st.session_state.scoreboard_data = edited_df
+# Process data safely from the stable session storage instead of raw editor outputs
+try:
+if isinstance(edited_output, pd.DataFrame):
+st.session_state.scoreboard_data = edited_output
+except:
+pass
 
-# Ensure 'Player' column is present
-if 'Player' not in edited_df.columns:
+stable_df = st.session_state.scoreboard_data
+
+# Ensure 'Player' column is present in our stable dataframe
+if 'Player' not in stable_df.columns:
 st.error("⚠️ **Error:** The column named 'Player' was modified or deleted. Please make sure one column is titled exactly 'Player'.")
 st.stop()
 
-# Convert to dictionary safely using standard DataFrame functions
-clean_df = edited_df.dropna(subset=['Player'])
+# Convert rows to lookup dictionary
 stats_dict = {}
-for _, row in clean_df.iterrows():
+for _, row in stable_df.dropna(subset=['Player']).iterrows():
 p_name = str(row['Player']).strip()
 if p_name:
 stats_dict[p_name] = {
